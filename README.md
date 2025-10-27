@@ -46,14 +46,32 @@ docker ps
 
 #### 1.3 Descargar fabric-samples
 ```bash
-# Descargar fabric-samples con binarios e imágenes Docker
-curl -sSL https://bit.ly/2ysbOFE | bash -s -- 2.5.4 1.5.5
+# Descargar el script de instalación oficial (método recomendado por Hyperledger)
+curl -sSLO https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh && chmod +x install-fabric.sh
 
-# Esto descargará una carpeta fabric-samples/ en el directorio actual
-# Contenido descargado:
-# - fabric-samples/         (≈500MB)
-# - fabric-samples/bin/     (herramientas CLI: peer, orderer, etc.)
-# - Imágenes Docker de Hyperledger Fabric
+# Instalar fabric-samples, binarios y imágenes Docker con versiones específicas
+./install-fabric.sh --fabric-version 2.5.4 --ca-version 1.5.5 docker binary samples
+
+# Limpiar el script de instalación
+rm install-fabric.sh
+```
+
+**¿Qué hace este comando?**
+- Descarga `fabric-samples/` (ejemplos y scripts)
+- Descarga binarios CLI en `fabric-samples/bin/` (peer, orderer, cryptogen, etc.)
+- Descarga imágenes Docker de Hyperledger Fabric v2.5.4 y Fabric-CA v1.5.5
+- Etiqueta automáticamente las imágenes como 'latest' para compatibilidad
+
+**Alternativa paso a paso** (si prefieres control granular):
+```bash
+# Solo samples
+./install-fabric.sh --fabric-version 2.5.4 samples
+
+# Solo binarios
+./install-fabric.sh --fabric-version 2.5.4 --ca-version 1.5.5 binary
+
+# Solo imágenes Docker
+./install-fabric.sh --fabric-version 2.5.4 --ca-version 1.5.5 docker
 ```
 
 **Importante**: 
@@ -330,7 +348,9 @@ git clone <URL_DEL_REPOSITORIO>
 cd ejercicio_registro_certificados
 
 # 3. Descargar fabric-samples (OBLIGATORIO)
-curl -sSL https://bit.ly/2ysbOFE | bash -s -- 2.5.4 1.5.5
+curl -sSLO https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh && chmod +x install-fabric.sh
+./install-fabric.sh --fabric-version 2.5.4 --ca-version 1.5.5 docker binary samples
+rm install-fabric.sh
 
 # 4. Levantar red blockchain
 cd fabric-samples/test-network
