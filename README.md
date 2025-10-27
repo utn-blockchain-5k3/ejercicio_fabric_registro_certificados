@@ -47,31 +47,39 @@ docker ps
 #### 1.3 Descargar fabric-samples
 ```bash
 # Descargar el script de instalación oficial (método recomendado por Hyperledger)
-curl -sSLO https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh && chmod +x install-fabric.sh
+rm -f install-fabric.sh
+# Descarga directa del repo oficial
+curl -fsSLo install-fabric.sh \
+  -H 'User-Agent: Mozilla/5.0' \
+  https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh
+chmod +x install-fabric.sh
 
-# Instalar fabric-samples, binarios y imágenes Docker con versiones específicas
-./install-fabric.sh --fabric-version 2.5.4 --ca-version 1.5.5 docker binary samples
 
-# Limpiar el script de instalación
-rm install-fabric.sh
+# Instalar fabric-samples, binarios y imágenes Docker con versiones más recientes
+./install-fabric.sh --fabric-version 2.5.14 --ca-version 1.5.15 docker binary samples
+
 ```
 
 **¿Qué hace este comando?**
 - Descarga `fabric-samples/` (ejemplos y scripts)
 - Descarga binarios CLI en `fabric-samples/bin/` (peer, orderer, cryptogen, etc.)
-- Descarga imágenes Docker de Hyperledger Fabric v2.5.4 y Fabric-CA v1.5.5
+- Descarga imágenes Docker de Hyperledger Fabric v2.5.14 y Fabric-CA v1.5.15
 - Etiqueta automáticamente las imágenes como 'latest' para compatibilidad
+
+**✅ Compatibilidad verificada:**
+- Chaincode usa `fabric-contract-api: ^2.5.8` → Compatible con v2.5.14
+- Versiones utilizadas: Fabric v2.5.14 (oct 2025) y Fabric-CA v1.5.15 (feb 2025)
 
 **Alternativa paso a paso** (si prefieres control granular):
 ```bash
 # Solo samples
-./install-fabric.sh --fabric-version 2.5.4 samples
+./install-fabric.sh --fabric-version 2.5.14 samples
 
 # Solo binarios
-./install-fabric.sh --fabric-version 2.5.4 --ca-version 1.5.5 binary
+./install-fabric.sh --fabric-version 2.5.14 --ca-version 1.5.15 binary
 
 # Solo imágenes Docker
-./install-fabric.sh --fabric-version 2.5.4 --ca-version 1.5.5 docker
+./install-fabric.sh --fabric-version 2.5.14 --ca-version 1.5.15 docker
 ```
 
 **Importante**: 
@@ -90,7 +98,6 @@ cd fabric-samples/test-network
 
 #### 2.1 Inicializar la red Fabric
 ```bash
-cd fabric-samples/test-network
 
 # Levantar la red con CA (Certificate Authority)
 ./network.sh up createChannel -ca
@@ -128,7 +135,7 @@ npm run build
 cd ../../fabric-samples/test-network
 
 # Desplegar chaincode usando el script oficial
-./scripts/deployCC.sh -ccn certificates -ccp ../../chaincode/certificates -ccl node -ccv 1.0 -ccs 1
+./scripts/deployCC.sh mychannel certificates ../../chaincode/certificates typescript 1.0 1
 ```
 
 **Parámetros del script:**
@@ -147,13 +154,22 @@ cd ../../fabric-samples/test-network
 
 #### 4.2 Verificar el despliegue
 ```bash
+# Configurar variables de entorno para Fabric (IMPORTANTE)
+source scripts/envVar.sh && setGlobals 1
+
 # Verificar que el chaincode está desplegado
 peer lifecycle chaincode querycommitted --channelID mychannel --name certificates
 ```
 
 ### 🧪 Paso 5: Probar el Chaincode
 
-#### 5.1 Crear certificados de prueba
+#### 5.1 Configurar entorno para comandos peer
+```bash
+# IMPORTANTE: Configurar variables de entorno antes de usar comandos peer
+source scripts/envVar.sh && setGlobals 1
+```
+
+#### 5.2 Crear certificados de prueba
 ```bash
 # Crear certificado 1
 peer chaincode invoke \
@@ -181,10 +197,10 @@ peer chaincode invoke \
   --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt" \
   --peerAddresses localhost:9051 \
   --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt" \
-  -c '{"function":"issueCertificate","Args":["{\"id\":\"CERT-002\",\"alumno\":\"María García\",\"carrera\":\"Ingeniería Civil\",\"fechaEmision\":\"2023-11-20\",\"issuer\":\"Universidad Nacional\",\"promedio\":88.2,\"hashDoc\":\"b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234567\"}"]}'
+  -c '{"function":"issueCertificate","Args":["{\"id\":\"CERT-002\",\"alumno\":\"María García\",\"carrera\":\"Ingeniería Civil\",\"fechaEmision\":\"2023-11-20\",\"issuer\":\"Universidad Nacional\",\"promedio\":88.2,\"hashDoc\":\"b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678\"}"]}'
 ```
 
-#### 5.2 Verificar que se crearon correctamente
+#### 5.3 Verificar que se crearon correctamente
 ```bash
 # Leer certificado 1
 peer chaincode query \
@@ -308,6 +324,9 @@ curl http://localhost:3001/api/certificates/CERT-003
 
 # Ver logs de un contenedor específico
 docker logs peer0.org1.example.com
+
+# Configurar variables de entorno (necesario para comandos peer)
+source scripts/envVar.sh && setGlobals 1
 ```
 
 ### Desarrollo de API
@@ -324,16 +343,35 @@ npm run build && npm start
 
 ## ❌ Troubleshooting
 
+### Si aparece error "Hash del documento debe ser SHA-256 válido (64 caracteres hexadecimales)":
+```bash
+# El chaincode valida que el hash tenga exactamente 64 caracteres hexadecimales
+# Verificar longitud del hash:
+echo -n "tu_hash_aqui" | wc -c  # Debe devolver 64
+
+# Ejemplos de hashes válidos (64 caracteres):
+# a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456
+# b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345678
+```
+
+### Si aparece error "cannot init crypto, specified path does not exist":
+```bash
+# El problema es que faltan las variables de entorno de Fabric
+cd fabric-samples/test-network
+source scripts/envVar.sh && setGlobals 1
+```
+
 ### Si el chaincode no se instala:
 1. Verificar que fabric-samples esté en la versión correcta
 2. Limpiar contenedores: `docker system prune -f`
 3. Reiniciar la red: `./network.sh down && ./network.sh up createChannel -ca`
-4. Repetir el despliegue: `./scripts/deployCC.sh -ccn certificates -ccp ../../chaincode/certificates -ccl node -ccv 1.0 -ccs 1`
+4. Repetir el despliegue: `./scripts/deployCC.sh mychannel certificates ../../chaincode/certificates typescript 1.0 1`
 
 ### Si la API no conecta con Fabric:
 1. Verificar que la red esté corriendo: `docker ps`
-2. Comprobar que el chaincode esté desplegado: `peer chaincode query -C mychannel -n certificates -c '{"Args":["readCertificate","CERT-001"]}'`
-3. Revisar la configuración de paths en `api/src/config/index.ts`
+2. Configurar variables de entorno: `source scripts/envVar.sh && setGlobals 1`
+3. Comprobar que el chaincode esté desplegado: `peer chaincode query -C mychannel -n certificates -c '{"Args":["readCertificate","CERT-001"]}'`
+4. Revisar la configuración de paths en `api/src/config/index.ts`
 
 ## 🚀 Inicio Rápido (Resumen)
 
@@ -349,7 +387,7 @@ cd ejercicio_registro_certificados
 
 # 3. Descargar fabric-samples (OBLIGATORIO)
 curl -sSLO https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/install-fabric.sh && chmod +x install-fabric.sh
-./install-fabric.sh --fabric-version 2.5.4 --ca-version 1.5.5 docker binary samples
+./install-fabric.sh --fabric-version 2.5.14 --ca-version 1.5.15 docker binary samples
 rm install-fabric.sh
 
 # 4. Levantar red blockchain
