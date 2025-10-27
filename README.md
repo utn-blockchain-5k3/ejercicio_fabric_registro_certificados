@@ -99,6 +99,9 @@ cd fabric-samples/test-network
 #### 2.1 Inicializar la red Fabric
 ```bash
 
+# Bajar la red completa
+./network.sh down
+
 # Levantar la red con CA (Certificate Authority)
 ./network.sh up createChannel -ca
 
